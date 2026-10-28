@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quiz HTML, CSS e DOM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: uma coluna estreita tipo "editor"; barra de progresso de 25 células no topo, cartão da questão, relatório final em tabela. */
+:root{
+  --bg:#f3f6f5; --surface:#ffffff; --ink:#14201d; --muted:#5b6b67; --line:#d5dfdc;
+  --accent:#0f6e64; --accent-ink:#ffffff; --accent-soft:#dcefeb;
+  --ok:#1d7a3e; --ok-soft:#e1f3e6; --bad:#b3261e; --bad-soft:#fbe6e4; --mid:#9a6200; --mid-soft:#fbefd9;
+  --code-bg:#eef3f1;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1514; --surface:#162120; --ink:#e3ece9; --muted:#97aaa5; --line:#2a3a37;
+  --accent:#4fc2b2; --accent-ink:#06211d; --accent-soft:#173a35;
+  --ok:#6ad08b; --ok-soft:#163323; --bad:#ff8a80; --bad-soft:#3a1c1a; --mid:#f2b950; --mid-soft:#3a2d12;
+  --code-bg:#1d2b29; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1514; --surface:#162120; --ink:#e3ece9; --muted:#97aaa5; --line:#2a3a37;
+  --accent:#4fc2b2; --accent-ink:#06211d; --accent-soft:#173a35;
+  --ok:#6ad08b; --ok-soft:#163323; --bad:#ff8a80; --bad-soft:#3a1c1a; --mid:#f2b950; --mid-soft:#3a2d12;
+  --code-bg:#1d2b29; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:760px;margin:0 auto;padding-block:28px 64px;display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(1.7rem,4.5vw,2.4rem);font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.35rem;font-weight:600}
+.eyebrow{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--muted)}
+code,.mono{font-family:var(--f-mono);font-size:.92em}
+code{background:var(--code-bg);padding:.08em .35em;border-radius:4px;overflow-wrap:anywhere}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px;min-width:0}
+label.f{display:flex;flex-direction:column;gap:6px;font-weight:500;font-size:.95rem}
+input[type=text],textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
+textarea{min-height:140px;resize:vertical}
+textarea.code{font-family:var(--f-mono);font-size:.92rem;min-height:110px}
+input:focus-visible,textarea:focus-visible,button:focus-visible,.opt:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.grid2{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+@media (max-width:560px){.grid2{grid-template-columns:1fr}}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:8px;padding:10px 18px;border:1px solid transparent}
+.btn{background:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn-ghost:hover{border-color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.row.end{justify-content:flex-end}
+.spacer{flex:1}
+.facts{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.92rem;color:var(--muted)}
+.facts b{color:var(--ink);font-weight:600}
+/* progresso */
+.cells{display:grid;grid-template-columns:repeat(25,1fr);gap:3px}
+@media (max-width:560px){.cells{grid-template-columns:repeat(13,1fr)}}
+.cell{aspect-ratio:1;max-width:100%;border-radius:4px;border:1px solid var(--line);background:var(--surface);font-family:var(--f-mono);font-size:.68rem;padding:0;display:grid;place-items:center;color:var(--muted);font-weight:500}
+.cell.cur{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);color:var(--ink)}
+.cell.ok{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.cell.bad{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+.cell.mid{background:var(--mid);border-color:var(--mid);color:var(--surface)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.8rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+/* questão */
+.qhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tag{font-family:var(--f-mono);font-size:.74rem;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--ink)}
+.tag.t-type{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.qtext{font-size:1.08rem;font-weight:500}
+pre.snip{background:var(--code-bg);border-radius:8px;padding:12px 14px;margin:0;overflow-x:auto;font-family:var(--f-mono);font-size:.88rem;line-height:1.5}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:11px 14px;cursor:pointer;background:var(--surface)}
+.opt:hover{border-color:var(--accent)}
+.opt input{margin-top:5px;accent-color:var(--accent)}
+.opt .k{font-family:var(--f-mono);font-weight:500;color:var(--muted)}
+.opt.sel{border-color:var(--accent);background:var(--accent-soft)}
+.opt.right{border-color:var(--ok);background:var(--ok-soft)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.locked .opt{cursor:default}
+.fb{border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;border:1px solid}
+.fb.ok{background:var(--ok-soft);border-color:var(--ok)}
+.fb.bad{background:var(--bad-soft);border-color:var(--bad)}
+.fb.mid{background:var(--mid-soft);border-color:var(--mid)}
+.fb .ttl{font-weight:600;font-family:var(--f-display);font-size:1.05rem}
+.fb.ok .ttl{color:var(--ok)} .fb.bad .ttl{color:var(--bad)} .fb.mid .ttl{color:var(--mid)}
+.fb p{margin:0}
+.model{border-left:3px solid var(--line);padding-left:12px;font-size:.95rem}
+.hint{font-size:.85rem;color:var(--muted)}
+/* relatório */
+.score{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:560px){.score{grid-template-columns:repeat(2,1fr)}}
+.stat{border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:2px}
+.stat .v{font-family:var(--f-display);font-size:1.9rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.stat .l{font-size:.8rem;color:var(--muted)}
+.bars{display:flex;flex-direction:column;gap:10px}
+.bar{display:grid;grid-template-columns:120px 1fr 64px;gap:10px;align-items:center;font-size:.92rem}
+.bar .track{height:10px;background:var(--code-bg);border-radius:999px;overflow:hidden}
+.bar .fill{height:100%;background:var(--accent)}
+.bar .n{font-variant-numeric:tabular-nums;text-align:right;font-family:var(--f-mono);font-size:.85rem}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.pill{font-size:.76rem;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.mid{background:var(--mid-soft);color:var(--mid)} .pill.na{background:var(--code-bg);color:var(--muted)}
+.notice{font-size:.88rem;background:var(--accent-soft);border-radius:8px;padding:10px 14px}
+.confirm{border:1px solid var(--bad);background:var(--bad-soft);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.msg{font-size:.9rem}
+.msg.err{color:var(--bad)} .msg.ok{color:var(--ok)}
+@media (prefers-reduced-motion:no-preference){.fb{animation:pop .22s ease-out}@keyframes pop{from{transform:translateY(4px);opacity:.6}to{transform:none;opacity:1}}}
+</style>
+<style>[hidden]{display:none!important}body{margin:0}</style>
+</head>
+<body>
+
+
+<div class="wrap" id="app"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+/* ---------------- Banco de questões ---------------- */
+/* tipos: mc (objetiva), open (dissertativa, avaliada por palavras-chave), code (escreva o código, avaliado por padrão) */
+const Q = [
+ {t:'HTML',type:'mc',q:'Qual elemento HTML5 é o mais adequado para agrupar os links do menu principal de navegação de um site?',
+  o:['`<div class="menu">`','`<nav>`','`<menu>`','`<section>`'],a:1,
+  ex:'`<nav>` é o elemento semântico para blocos de navegação principais. Uma `<div>` funciona visualmente, mas não comunica a função a leitores de tela e buscadores.'},
+ {t:'HTML',type:'mc',q:'Qual atributo faz com que o navegador impeça o envio do formulário enquanto um campo estiver vazio?',
+  o:['`validate`','`mandatory`','`required`','`notnull`'],a:2,
+  ex:'O atributo booleano `required` ativa a validação nativa do navegador: o formulário não é enviado com o campo vazio.'},
+ {t:'HTML',type:'mc',q:'Como associar corretamente um `<label>` a um `<input id="email">`, de forma que clicar no texto foque o campo?',
+  o:['`<label name="email">E-mail</label>`','`<label for="email">E-mail</label>`','`<label id="email">E-mail</label>`','`<label href="#email">E-mail</label>`'],a:1,
+  ex:'O atributo `for` do label deve ter o mesmo valor do `id` do campo. Isso também melhora a acessibilidade, pois o leitor de tela anuncia o rótulo.'},
+ {t:'HTML',type:'open',q:'Explique a diferença entre elementos de **bloco** (block) e elementos **em linha** (inline) no HTML. Cite pelo menos um exemplo de cada.',
+  kw:[['bloco','block'],['linha','inline'],['largura','width','ocupa','nova linha','quebra','lado a lado','toda a linha','100%'],['div','<p>',' p ','paragrafo','h1','section','header','ul','form','article'],['span','<a>',' a ','strong','em','img','link','label','button']],
+  model:'Elementos de bloco (ex.: `div`, `p`, `h1`, `section`) começam em uma nova linha e ocupam toda a largura disponível. Elementos em linha (ex.: `span`, `a`, `strong`, `em`) ficam no fluxo do texto, lado a lado, e ocupam apenas a largura do seu conteúdo.'},
+ {t:'HTML',type:'mc',q:'Qual é a principal finalidade do atributo `alt` em uma tag `<img>`?',
+  o:['Definir a legenda que aparece abaixo da imagem','Fornecer um texto alternativo para leitores de tela e para quando a imagem não carrega','Exibir uma dica quando o mouse passa sobre a imagem','Indicar o endereço de uma imagem reserva'],a:1,
+  ex:'`alt` descreve a imagem para quem não pode vê-la (leitores de tela) e aparece se o arquivo falhar. A dica ao passar o mouse vem do atributo `title`.'},
+ {t:'HTML',type:'code',q:'Escreva a tag HTML de um link com o texto "Portal IFFar" que aponte para `https://iffar.edu.br` e abra em uma **nova aba**.',
+  check:s=>{const m=s.match(/<a\b[^>]*>/i);if(!m)return false;const tag=m[0];return /href\s*=\s*["']https?:\/\/(www\.)?iffar\.edu\.br\/?["']/i.test(tag)&&/target\s*=\s*["']_blank["']/i.test(tag)},
+  hint:'Verificamos se existe uma tag <a> com href apontando para https://iffar.edu.br e target="_blank".',
+  model:'`<a href="https://iffar.edu.br" target="_blank" rel="noopener">Portal IFFar</a>` (o `rel="noopener"` é uma boa prática de segurança ao abrir nova aba).'},
+ {t:'HTML',type:'mc',q:'Em um `<form>`, qual valor de `method` envia os dados como parâmetros visíveis na URL?',
+  o:['`POST`','`GET`','`PUT`','`SEND`'],a:1,
+  ex:'Com `GET`, os campos viram parâmetros na URL (`?nome=Ana&idade=20`). `POST` envia os dados no corpo da requisição. Formulários HTML só aceitam GET e POST.'},
+ {t:'HTML',type:'open',q:'Por que é importante usar **HTML semântico** (`header`, `main`, `article`, `footer` etc.) em vez de construir tudo com `div`? Apresente ao menos dois benefícios.',
+  kw:[['semant','significado','sentido','funcao','proposito','estrutura'],['acessib','leitor de tela','leitores de tela','deficien','tecnologia assistiva'],['seo','buscador','busca','google','indexa','motores'],['manuten','legib','leitura do codigo','organiz','entender o codigo','clareza','padroniz']],
+  model:'Tags semânticas descrevem o papel de cada parte da página. Isso melhora a acessibilidade (leitores de tela navegam por regiões), ajuda buscadores a entender o conteúdo (SEO) e deixa o código mais legível e fácil de manter.'},
+ {t:'CSS',type:'mc',q:'Um `<p id="aviso" class="texto">` recebe três regras: `p {color: blue}`, `.texto {color: green}` e `#aviso {color: red}`. Qual cor será aplicada?',
+  o:['Azul, pois o seletor de elemento é declarado primeiro','Verde, pois classes têm prioridade sobre IDs','Vermelho, pois o seletor de ID tem maior especificidade','A cor da última regra escrita no arquivo'],a:2,
+  ex:'Especificidade: ID (1,0,0) > classe (0,1,0) > elemento (0,0,1). A ordem no arquivo só decide quando a especificidade empata.'},
+ {t:'CSS',type:'mc',q:'O que muda quando aplicamos `box-sizing: border-box` a um elemento com `width: 200px; padding: 20px; border: 5px solid`?',
+  o:['A largura total visível passa a ser 250px','A largura total visível continua 200px, porque padding e borda ficam incluídos na largura','O padding é ignorado','A borda passa a ser desenhada fora da margem'],a:1,
+  ex:'Com `border-box`, `width` inclui conteúdo + padding + borda: a caixa ocupa exatamente 200px. No padrão `content-box`, seriam 200 + 40 + 10 = 250px.'},
+ {t:'CSS',type:'code',q:'Escreva uma regra CSS que deixe com **texto vermelho** todos os elementos que têm a classe `destaque`.',
+  check:s=>/\.destaque\s*\{[^}]*\bcolor\s*:\s*(red|#f00\b|#ff0000\b|rgba?\(\s*255\s*,\s*0\s*,\s*0)/i.test(s),
+  hint:'Verificamos o seletor .destaque e a propriedade color com valor vermelho (red, #f00, #ff0000 ou rgb(255,0,0)).',
+  model:'`.destaque { color: red; }`'},
+ {t:'CSS',type:'mc',q:'Em um contêiner com `display: flex` (direção padrão em linha), qual propriedade centraliza os itens **horizontalmente**?',
+  o:['`align-items: center`','`text-align: center`','`justify-content: center`','`align-content: center`'],a:2,
+  ex:'`justify-content` alinha no eixo principal (horizontal quando `flex-direction: row`). `align-items` alinha no eixo transversal (vertical).'},
+ {t:'CSS',type:'mc',q:'Um elemento com `position: absolute` é posicionado em relação a quê?',
+  o:['Sempre à janela do navegador','Ao seu elemento pai direto, qualquer que seja','Ao ancestral mais próximo que tenha `position` diferente de `static`','À posição que ocuparia no fluxo normal'],a:2,
+  ex:'O bloco de referência é o ancestral posicionado mais próximo (`relative`, `absolute`, `fixed` ou `sticky`). Se não houver, usa o bloco inicial (a página). Deslocar-se a partir da posição original é o comportamento de `relative`.'},
+ {t:'CSS',type:'open',q:'Qual a diferença entre `display: none` e `visibility: hidden`?',
+  kw:[['espaco','layout','lugar','area'],['remove','retira','nao ocupa','some do fluxo','fora do fluxo','como se nao existisse','deixa de ocupar','sai do fluxo'],['continua ocupando','mantem','preserva','reserva','ainda ocupa','permanece','ocupa o espaco','espaco vazio','lacuna','buraco']],
+  model:'`display: none` remove o elemento do fluxo: ele não aparece e não ocupa espaço. `visibility: hidden` apenas o torna invisível; o espaço que ele ocupa no layout é mantido.'},
+ {t:'CSS',type:'mc',q:'Qual media query aplica estilos apenas em telas de **até 600px** de largura?',
+  o:['`@media (min-width: 600px)`','`@media (max-width: 600px)`','`@media screen = 600px`','`@media (width < 600)`'],a:1,
+  ex:'`max-width: 600px` vale quando a largura é menor ou igual a 600px (abordagem desktop-first). `min-width` vale a partir do valor (mobile-first).'},
+ {t:'CSS',type:'mc',q:'A unidade `rem` é relativa a quê?',
+  o:['Ao tamanho da fonte do elemento pai','À largura da janela','Ao tamanho da fonte do elemento raiz (`html`)','À resolução da tela em pixels'],a:2,
+  ex:'`rem` = "root em": usa o `font-size` do `html` (normalmente 16px). Já `em` é relativo ao tamanho da fonte do próprio elemento/pai, e `vw` à largura da janela.'},
+ {t:'JS/DOM',type:'mc',q:'O que `document.querySelector(".item")` retorna?',
+  o:['Uma lista com todos os elementos de classe `item`','O primeiro elemento do documento que corresponde ao seletor `.item`, ou `null`','O último elemento com a classe `item`','Um array vazio quando não encontra nada'],a:1,
+  ex:'`querySelector` devolve só a primeira correspondência (ou `null`). Para obter todos, use `querySelectorAll`, que retorna uma `NodeList`.'},
+ {t:'JS/DOM',type:'mc',q:'Qual propriedade **interpreta** marcações HTML presentes na string atribuída?',
+  o:['`textContent`','`innerText`','`innerHTML`','`nodeValue`'],a:2,
+  ex:'`innerHTML` interpreta a string como HTML e cria elementos. `textContent` insere tudo como texto puro, o que é mais seguro para dados digitados por usuários (evita XSS).'},
+ {t:'JS/DOM',type:'code',q:'Escreva **uma linha** de JavaScript que selecione o elemento com `id="titulo"` e troque o seu texto para `Olá`.',
+  check:s=>/document\s*\.\s*(getElementById\(\s*(['"`])titulo\2\s*\)|querySelector\(\s*(['"`])#titulo\3\s*\))\s*\.\s*(textContent|innerText|innerHTML)\s*=\s*(['"`])Ol[aá]!?\5/i.test(s),
+  hint:'Verificamos a seleção com getElementById("titulo") ou querySelector("#titulo") e a atribuição a textContent, innerText ou innerHTML.',
+  model:'`document.getElementById("titulo").textContent = "Olá";` (ou `document.querySelector("#titulo").textContent = "Olá";`)'},
+ {t:'JS/DOM',type:'mc',q:'Qual vantagem `elemento.addEventListener("click", fn)` tem sobre `elemento.onclick = fn`?',
+  o:['Executa a função mais rápido','Permite registrar vários ouvintes para o mesmo evento sem sobrescrever os anteriores','Funciona apenas em botões','Dispensa a criação de uma função'],a:1,
+  ex:'Cada `onclick = ...` substitui o anterior. `addEventListener` acumula ouvintes e ainda permite opções como `once` e remoção com `removeEventListener`.'},
+ {t:'JS/DOM',type:'open',q:'Para que serve `event.preventDefault()`? Dê um exemplo de situação em que ele é útil.',
+  kw:[['comportamento padr','acao padr','padrao do navegador','default','padrao'],['impede','evita','cancela','bloqueia','interrompe','nao deixa','previne'],['formul','submit','envio','link','<a','recarreg','ancora','redirecion','checkbox','tecla']],
+  model:'`preventDefault()` cancela a ação padrão que o navegador faria para aquele evento. Exemplo: no `submit` de um formulário, evita que a página recarregue, permitindo validar os dados ou enviá-los com `fetch`. Também serve para impedir que um link navegue.'},
+ {t:'JS/DOM',type:'mc',q:'Qual sequência cria um novo `<li>` e o adiciona ao final de uma lista `ul`?',
+  snip:'const ul = document.querySelector("ul");',
+  o:['`ul.innerHTML("li")`','`const li = document.createElement("li"); ul.appendChild(li);`','`const li = new Element("li"); ul.add(li);`','`document.write("<li>")`'],a:1,
+  ex:'`document.createElement` cria o nó e `appendChild` (ou `append`) o insere como último filho. `document.write` sobrescreve a página se usado após o carregamento.'},
+ {t:'JS/DOM',type:'mc',q:'O que faz `botao.classList.toggle("ativo")`?',
+  o:['Sempre adiciona a classe `ativo`','Remove todas as classes e deixa só `ativo`','Adiciona `ativo` se não existir e remove se já existir','Verifica se a classe existe e retorna `true` ou `false` sem alterar nada'],a:2,
+  ex:'`toggle` alterna a classe. Para apenas verificar, usa-se `classList.contains`; para adicionar ou remover explicitamente, `add` e `remove`.'},
+ {t:'JS/DOM',type:'open',q:'O que é **delegação de eventos** e qual a sua principal vantagem?',
+  kw:[['pai','ancestral','conteiner','container','elemento superior','envolve'],['propag','bubbl','borbulh','sobe'],['target','alvo','qual elemento','origem','closest','matches'],['dinamic','novos elementos','adicionados depois','criados depois','desempenho','performance','menos listeners','menos ouvintes','unico ouvinte','um so','apenas um','memoria']],
+  model:'Delegação é registrar um único ouvinte em um elemento pai e, aproveitando a propagação (bubbling), descobrir pelo `event.target` qual filho originou o evento. Vantagens: menos ouvintes (melhor desempenho) e funciona para elementos adicionados dinamicamente depois.'},
+ {t:'JS/DOM',type:'open',q:'Explique com suas palavras o que é o **DOM** e qual a sua relação com o JavaScript.',
+  kw:[['document object model','modelo de objeto','modelo de objetos'],['arvore','nos','hierarq','estrutura'],['javascript','js','script'],['manipul','acessar','alterar','modificar','dinamic','ler e alterar','interag']],
+  model:'DOM (Document Object Model) é a representação da página HTML como uma árvore de objetos (nós) criada pelo navegador. O JavaScript usa essa interface para ler e modificar elementos, atributos, estilos e reagir a eventos, tornando a página dinâmica.'}
+];
+const TOPICS=['HTML','CSS','JS/DOM'];
+const TYPE_LABEL={mc:'Objetiva',open:'Dissertativa',code:'Escreva o código'};
+const KEY='quiz-web-dom-iffar-v1';
+const LETTERS='ABCD';
+
+/* ---------------- Estado ---------------- */
+let S=load()||fresh();
+function fresh(){return{student:null,current:0,answers:{},order:Q.map(q=>q.type==='mc'?shuffle(q.o.map((_,i)=>i)):null),finished:false,started:null,ended:null,draft:{}}}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));return s&&s.order&&s.order.length===Q.length?s:null}catch(e){return null}}
+
+/* ---------------- Utilidades ---------------- */
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const md=s=>esc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+const plain=s=>String(s).replace(/`/g,'"').replace(/\*\*/g,'');
+const norm=s=>' '+String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ')+' ';
+const $=sel=>document.querySelector(sel);
+
+function grade(i,value){
+  const q=Q[i];
+  if(q.type==='mc'){const ok=value===q.a;return{status:ok?'ok':'bad',score:ok?1:0}}
+  if(q.type==='code'){const ok=q.check(value);return{status:ok?'ok':'bad',score:ok?1:0}}
+  const t=norm(value);const words=t.trim().split(' ').filter(Boolean).length;
+  const hit=q.kw.map(g=>g.some(k=>t.includes(k.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''))));
+  const n=hit.filter(Boolean).length,ratio=n/q.kw.length;
+  if(words<6)return{status:'bad',score:0,hit,short:true};
+  if(ratio>=0.6)return{status:'ok',score:1,hit};
+  if(ratio>=0.3)return{status:'mid',score:0.5,hit};
+  return{status:'bad',score:0,hit};
+}
+function totals(){
+  let pts=0,ok=0,mid=0,bad=0,blank=0;const by={};TOPICS.forEach(t=>by[t]={pts:0,n:0});const bt={mc:{pts:0,n:0},dis:{pts:0,n:0}};
+  Q.forEach((q,i)=>{const a=S.answers[i];by[q.t].n++;const k=q.type==='mc'?'mc':'dis';bt[k].n++;
+    if(!a){blank++;return}pts+=a.score;by[q.t].pts+=a.score;bt[k].pts+=a.score;if(a.status==='ok')ok++;else if(a.status==='mid')mid++;else bad++});
+  return{pts,ok,mid,bad,blank,by,bt,nota:(pts/Q.length*10)};
+}
+const fmt=n=>(Math.round(n*10)/10).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+const fmtDate=d=>new Date(d).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+
+/* ---------------- Telas ---------------- */
+function render(){
+  if(!S.student)return renderStart();
+  if(S.finished)return renderReport();
+  renderQuestion();
+}
+
+function renderStart(){
+  $('#app').innerHTML=`
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <span class="eyebrow">Sistemas de Informação · IFFar São Borja</span>
+    <h1>Questionário: HTML, CSS e manipulação do DOM</h1>
+    <p class="muted" style="margin:0;max-width:62ch">São 25 questões: 16 objetivas e 9 dissertativas, sendo 3 delas de escrever código. Você recebe o feedback assim que confirma cada resposta. No final aparece o relatório de desempenho, que pode ser baixado em PDF para enviar ao professor.</p>
+    <div class="facts"><span><b>8</b> HTML</span><span><b>8</b> CSS</span><span><b>9</b> JavaScript/DOM</span><span><b>~40</b> minutos</span></div>
+  </header>
+  <form class="card" id="f-start" novalidate>
+    <h2>Identificação</h2>
+    <label class="f">Nome completo<input type="text" id="in-nome" autocomplete="name" required></label>
+    <div class="grid2">
+      <label class="f">Matrícula<input type="text" id="in-mat" inputmode="numeric" required></label>
+      <label class="f">Turma<input type="text" id="in-turma" placeholder="ex.: SI 3º sem."></label>
+    </div>
+    <p class="hint" style="margin:0">As dissertativas são corrigidas automaticamente por palavras-chave. Essa correção é preliminar: o professor revisa suas respostas no PDF. Escreva frases completas.</p>
+    <p class="msg err" id="start-err" hidden></p>
+    <div class="row end"><button class="btn" type="submit" id="btn-start">Começar questionário</button></div>
+  </form>`;
+  $('#f-start').addEventListener('submit',e=>{e.preventDefault();
+    const nome=$('#in-nome').value.trim(),mat=$('#in-mat').value.trim(),turma=$('#in-turma').value.trim();
+    if(nome.length<3||!mat){const m=$('#start-err');m.textContent='Preencha o nome completo e a matrícula para começar.';m.hidden=false;return}
+    S.student={nome,mat,turma};S.started=Date.now();save();render();window.scrollTo(0,0)});
+}
+
+function progressHTML(){
+  return `<div class="cells" role="list">${Q.map((_,i)=>{const a=S.answers[i];const c=[a?a.status:'',i===S.current?'cur':''].join(' ');
+    return `<button class="cell ${c}" role="listitem" data-go="${i}" aria-label="Questão ${i+1}${a?', respondida':''}">${i+1}</button>`}).join('')}</div>
+  <div class="legend"><span><i style="background:var(--ok)"></i>Correta</span><span><i style="background:var(--mid)"></i>Parcial</span><span><i style="background:var(--bad)"></i>Incorreta</span><span><i style="border:1px solid var(--line)"></i>Não respondida</span></div>`;
+}
+
+function renderQuestion(){
+  const i=S.current,q=Q[i],a=S.answers[i],locked=!!a;
+  const answered=Object.keys(S.answers).length;
+  let body='';
+  if(q.type==='mc'){
+    body=`<div class="opts ${locked?'locked':''}" role="radiogroup">${S.order[i].map((oi,pos)=>{
+      let cls='';if(locked){if(oi===q.a)cls='right';else if(oi===a.value)cls='wrong'}
+      return `<label class="opt ${cls}"><input type="radio" name="opt" value="${oi}" ${locked?'disabled':''} ${locked&&a.value===oi?'checked':''}><span class="k">${LETTERS[pos]})</span><span>${md(q.o[oi])}</span></label>`}).join('')}</div>`;
+  }else{
+    const val=locked?a.value:(S.draft[i]||'');
+    body=`<label class="f"><span class="hint">${q.type==='code'?'Digite seu código abaixo':'Sua resposta'}</span>
+      <textarea id="ta-${i}" class="${q.type==='code'?'code':''}" spellcheck="${q.type==='code'?'false':'true'}" ${locked?'readonly':''}>${esc(val)}</textarea></label>`;
+  }
+  $('#app').innerHTML=`
+  <header class="row"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="eyebrow">Questionário · HTML, CSS e DOM</span>
+    <span class="muted" style="font-size:.9rem">${esc(S.student.nome)} · ${answered} de ${Q.length} respondidas</span></div>
+    <span class="spacer"></span><button class="btn-ghost" id="btn-finish" type="button">Ver relatório</button></header>
+  ${progressHTML()}
+  <article class="card">
+    <div class="qhead"><span class="eyebrow">Questão ${i+1} de ${Q.length}</span><span class="tag">${q.t}</span><span class="tag t-type">${TYPE_LABEL[q.type]}</span></div>
+    <div class="qtext">${md(q.q)}</div>
+    ${q.snip?`<pre class="snip">${esc(q.snip)}</pre>`:''}
+    ${body}
+    <div id="fb">${locked?feedbackHTML(i):''}</div>
+    <p class="msg err" id="q-err" hidden></p>
+    <div class="row"><button class="btn-ghost" id="btn-prev" type="button" ${i===0?'disabled':''}>Anterior</button><span class="spacer"></span>
+      ${locked?'':`<button class="btn" id="btn-check" type="button">Confirmar resposta</button>`}
+      ${locked?`<button class="btn" id="btn-next" type="button">${nextLabel()}</button>`:''}</div>
+  </article>
+  <div id="finish-box"></div>`;
+  bindQuestion();
+}
+function nextLabel(){return Object.keys(S.answers).length===Q.length?'Ver relatório':(S.current<Q.length-1?'Próxima questão':'Ir para a pendente')}
+
+function feedbackHTML(i){
+  const q=Q[i],a=S.answers[i];
+  const title={ok:'Correto!',mid:'Parcialmente correto',bad:'Incorreto'}[a.status];
+  let extra='';
+  if(q.type==='mc'){
+    const pos=S.order[i].indexOf(q.a);
+    extra=`${a.status==='bad'?`<p>Resposta correta: <strong>${LETTERS[pos]})</strong> ${md(q.o[q.a])}</p>`:''}<p>${md(q.ex)}</p>`;
+  }else if(q.type==='code'){
+    extra=`${a.status==='bad'?`<p class="hint">${esc(q.hint)}</p>`:''}<div class="model"><strong>Resposta de referência:</strong> ${md(q.model)}</div>`;
+  }else{
+    const n=a.hit?a.hit.filter(Boolean).length:0;
+    extra=`${a.short?'<p>Sua resposta ficou curta demais para avaliar. Escreva ao menos uma ou duas frases completas.</p>':`<p class="hint">Sua resposta contemplou ${n} de ${q.kw.length} ideias-chave esperadas. Correção automática preliminar; o professor revisa.</p>`}
+      <div class="model"><strong>Resposta de referência:</strong> ${md(q.model)}</div>`;
+  }
+  return `<div class="fb ${a.status}" role="status"><span class="ttl">${title}</span>${extra}</div>`;
+}
+
+function bindQuestion(){
+  const i=S.current,q=Q[i];
+  document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{S.current=+b.dataset.go;save();renderQuestion()}));
+  document.querySelectorAll('.opt input').forEach(r=>r.addEventListener('change',()=>{document.querySelectorAll('.opt').forEach(o=>o.classList.toggle('sel',o.querySelector('input').checked))}));
+  const ta=$('#ta-'+i);if(ta&&!S.answers[i])ta.addEventListener('input',()=>{S.draft[i]=ta.value;save()});
+  $('#btn-prev').addEventListener('click',()=>{if(S.current>0){S.current--;save();renderQuestion()}});
+  $('#btn-finish').addEventListener('click',askFinish);
+  const chk=$('#btn-check');
+  if(chk)chk.addEventListener('click',()=>{
+    let v;
+    if(q.type==='mc'){const r=document.querySelector('.opt input:checked');if(!r)return showErr('Escolha uma alternativa antes de confirmar.');v=+r.value}
+    else{v=ta.value.trim();if(!v)return showErr('Escreva sua resposta antes de confirmar.')}
+    S.answers[i]={value:v,...grade(i,v)};delete S.draft[i];save();renderQuestion();
+    const fb=$('#fb');if(fb)fb.scrollIntoView({block:'nearest',behavior:'smooth'});
+  });
+  const nx=$('#btn-next');
+  if(nx)nx.addEventListener('click',()=>{
+    if(Object.keys(S.answers).length===Q.length){finish();return}
+    let n=S.current+1;while(n<Q.length&&S.answers[n])n++;
+    if(n>=Q.length){n=0;while(S.answers[n])n++}
+    S.current=n;save();renderQuestion();window.scrollTo(0,0)});
+}
+function showErr(t){const m=$('#q-err');m.textContent=t;m.hidden=false}
+function askFinish(){
+  const left=Q.length-Object.keys(S.answers).length;
+  if(!left)return finish();
+  $('#finish-box').innerHTML=`<div class="confirm"><span>Ainda há <strong>${left}</strong> ${left===1?'questão não respondida, que contará':'questões não respondidas, que contarão'} como erro. Depois de gerar o relatório não é possível voltar a responder.</span>
+    <div class="row"><button class="btn" id="fin-yes" type="button">Encerrar e ver relatório</button><button class="btn-ghost" id="fin-no" type="button">Continuar respondendo</button></div></div>`;
+  $('#fin-yes').addEventListener('click',finish);$('#fin-no').addEventListener('click',()=>{$('#finish-box').innerHTML=''});
+  $('#finish-box').scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+function finish(){S.finished=true;S.ended=Date.now();save();render();window.scrollTo(0,0)}
+
+function statusPill(a){if(!a)return '<span class="pill na">Em branco</span>';return `<span class="pill ${a.status}">${{ok:'Correta',mid:'Parcial',bad:'Incorreta'}[a.status]}</span>`}
+
+function renderReport(){
+  const T=totals();
+  const mins=Math.max(1,Math.round((S.ended-S.started)/60000));
+  $('#app').innerHTML=`
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <span class="eyebrow">Relatório de desempenho</span>
+    <h1>${esc(S.student.nome)}</h1>
+    <div class="facts"><span>Matrícula <b>${esc(S.student.mat)}</b></span>${S.student.turma?`<span>Turma <b>${esc(S.student.turma)}</b></span>`:''}<span>Concluído em <b>${fmtDate(S.ended)}</b></span><span>Duração <b>${mins} min</b></span></div>
+  </header>
+  <section class="card">
+    <div class="score">
+      <div class="stat"><span class="v">${fmt(T.nota)}</span><span class="l">Nota (0 a 10)</span></div>
+      <div class="stat"><span class="v" style="color:var(--ok)">${T.ok}</span><span class="l">Corretas</span></div>
+      <div class="stat"><span class="v" style="color:var(--mid)">${T.mid}</span><span class="l">Parciais (meio ponto)</span></div>
+      <div class="stat"><span class="v" style="color:var(--bad)">${T.bad+T.blank}</span><span class="l">Incorretas${T.blank?` (${T.blank} em branco)`:''}</span></div>
+    </div>
+    <h3 style="font-size:1rem">Aproveitamento por conteúdo</h3>
+    <div class="bars">${TOPICS.map(t=>{const b=T.by[t],p=b.pts/b.n*100;return `<div class="bar"><span>${t}</span><div class="track"><div class="fill" style="width:${p}%"></div></div><span class="n">${fmt(b.pts)}/${b.n}</span></div>`}).join('')}
+      <div class="bar"><span>Objetivas</span><div class="track"><div class="fill" style="width:${T.bt.mc.pts/T.bt.mc.n*100}%"></div></div><span class="n">${fmt(T.bt.mc.pts)}/${T.bt.mc.n}</span></div>
+      <div class="bar"><span>Dissertativas</span><div class="track"><div class="fill" style="width:${T.bt.dis.pts/T.bt.dis.n*100}%"></div></div><span class="n">${fmt(T.bt.dis.pts)}/${T.bt.dis.n}</span></div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="row"><h2>Enviar ao professor</h2></div>
+    <p style="margin:0">Baixe o PDF com seu desempenho e todas as suas respostas e envie ao professor pelo canal combinado (Moodle, SIGAA ou e-mail).</p>
+    <div class="row"><button class="btn" id="btn-pdf" type="button">Baixar relatório em PDF</button><button class="btn-ghost" id="btn-copy" type="button">Copiar resumo em texto</button></div>
+    <p class="msg" id="pdf-msg" hidden></p>
+    <p class="notice" style="margin:0">As dissertativas foram corrigidas automaticamente por palavras-chave. A nota final pode mudar após a revisão do professor.</p>
+  </section>
+  <section class="card">
+    <h2>Questão por questão</h2>
+    <div class="tbl"><table><thead><tr><th>#</th><th>Conteúdo</th><th>Tipo</th><th>Resultado</th><th>Pontos</th></tr></thead><tbody>
+    ${Q.map((q,i)=>{const a=S.answers[i];return `<tr><td class="num">${i+1}</td><td>${q.t}</td><td>${TYPE_LABEL[q.type]}</td><td>${statusPill(a)}</td><td class="num">${a?fmt(a.score):'0,0'}</td></tr>`}).join('')}
+    </tbody></table></div>
+  </section>
+  <div class="row" id="restart-row"><span class="spacer"></span><button class="btn-ghost" id="btn-restart" type="button">Recomeçar do zero</button></div>`;
+  $('#btn-pdf').addEventListener('click',downloadPDF);
+  $('#btn-copy').addEventListener('click',copySummary);
+  $('#btn-restart').addEventListener('click',()=>{
+    $('#restart-row').outerHTML=`<div class="confirm" id="restart-row"><span>Isso apaga todas as respostas e o relatório neste navegador. Baixe o PDF antes, se ainda não baixou.</span><div class="row"><button class="btn" id="rs-yes" type="button">Apagar e recomeçar</button><button class="btn-ghost" id="rs-no" type="button">Cancelar</button></div></div>`;
+    $('#rs-yes').addEventListener('click',()=>{S=fresh();save();render();window.scrollTo(0,0)});
+    $('#rs-no').addEventListener('click',renderReport);
+  });
+}
+
+function msg(t,kind){const m=$('#pdf-msg');m.textContent=t;m.className='msg '+(kind||'');m.hidden=false}
+
+function answerText(i){
+  const q=Q[i],a=S.answers[i];if(!a)return '(em branco)';
+  if(q.type==='mc')return LETTERS[S.order[i].indexOf(a.value)]+') '+plain(q.o[a.value]);
+  return a.value;
+}
+function correctText(i){const q=Q[i];if(q.type==='mc')return LETTERS[S.order[i].indexOf(q.a)]+') '+plain(q.o[q.a]);return plain(q.model)}
+
+function summaryText(){
+  const T=totals();
+  let s=`Questionário HTML, CSS e DOM - Sistemas de Informação (IFFar)\nAluno(a): ${S.student.nome}\nMatrícula: ${S.student.mat}${S.student.turma?'\nTurma: '+S.student.turma:''}\nConcluído em: ${fmtDate(S.ended)}\n\nNota: ${fmt(T.nota)} / 10\nCorretas: ${T.ok} | Parciais: ${T.mid} | Incorretas: ${T.bad} | Em branco: ${T.blank}\n`;
+  TOPICS.forEach(t=>s+=`${t}: ${fmt(T.by[t].pts)}/${T.by[t].n}\n`);
+  s+='\n';Q.forEach((q,i)=>{const a=S.answers[i];s+=`Q${i+1} [${q.t}] ${a?{ok:'Correta',mid:'Parcial',bad:'Incorreta'}[a.status]:'Em branco'}\n`});
+  return s;
+}
+async function copySummary(){
+  const txt=summaryText();
+  try{await navigator.clipboard.writeText(txt);msg('Resumo copiado. Cole na mensagem para o professor.','ok')}
+  catch(e){const box=document.createElement('textarea');box.value=txt;box.readOnly=true;box.style.minHeight='220px';$('#pdf-msg').after(box);box.select();msg('Não foi possível copiar automaticamente. O texto está selecionado abaixo: use Ctrl+C.','')}
+}
+
+/* Fontes padrão do jsPDF usam o conjunto Latin-1: troca o que estiver fora dele */
+const latin=s=>String(s).replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[–—]/g,'-').replace(/…/g,'...').replace(/\t/g,'  ').replace(/[^\n\x20-\x7e\xa0-\xff]/g,'?');
+
+function buildPDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'pt',format:'a4'});
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=48,CW=W-2*M;
+  let y=M;
+  const T=totals();
+  const ensure=h=>{if(y+h>H-M){doc.addPage();y=M}};
+  const text=(s,{size=10,style='normal',font='helvetica',color=[20,32,29],gap=4,indent=0}={})=>{
+    doc.setFont(font,style);doc.setFontSize(size);doc.setTextColor(...color);
+    const lines=doc.splitTextToSize(latin(s),CW-indent);const lh=size*1.3;
+    lines.forEach(l=>{ensure(lh);doc.text(l,M+indent,y+size);y+=lh});y+=gap;
+  };
+  // Cabeçalho
+  doc.setFillColor(15,110,100);doc.rect(0,0,W,6,'F');
+  text('RELATÓRIO DE DESEMPENHO',{size:9,style:'bold',color:[15,110,100],gap:2});
+  text('Questionário: HTML, CSS e manipulação do DOM',{size:17,style:'bold',gap:2});
+  text('Sistemas de Informação - IFFar Campus São Borja',{size:10,color:[91,107,103],gap:12});
+  text(`Aluno(a): ${S.student.nome}`,{size:11,style:'bold',gap:1});
+  text(`Matrícula: ${S.student.mat}${S.student.turma?'    Turma: '+S.student.turma:''}`,{size:10,gap:1});
+  text(`Início: ${fmtDate(S.started)}    Conclusão: ${fmtDate(S.ended)}`,{size:10,gap:12});
+  // Quadro de nota
+  ensure(70);doc.setDrawColor(213,223,220);doc.setFillColor(238,243,241);doc.roundedRect(M,y,CW,62,6,6,'FD');
+  doc.setFont('helvetica','bold');doc.setFontSize(26);doc.setTextColor(15,110,100);doc.text(fmt(T.nota),M+16,y+38);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(91,107,103);doc.text('nota (0 a 10)',M+16,y+52);
+  const cols=[['Corretas',T.ok],['Parciais',T.mid],['Incorretas',T.bad],['Em branco',T.blank]];
+  cols.forEach((c,k)=>{const x=M+130+k*((CW-140)/4);doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(20,32,29);doc.text(String(c[1]),x,y+34);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(91,107,103);doc.text(c[0],x,y+48)});
+  y+=76;
+  text('Aproveitamento por conteúdo',{size:11,style:'bold',gap:4});
+  [...TOPICS.map(t=>[t,T.by[t]]),['Objetivas',T.bt.mc],['Dissertativas',T.bt.dis]].forEach(([lab,b])=>{
+    ensure(16);const p=b.pts/b.n;doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(20,32,29);doc.text(lab,M,y+9);
+    doc.setFillColor(225,232,230);doc.rect(M+90,y+3,CW-160,7,'F');doc.setFillColor(15,110,100);doc.rect(M+90,y+3,(CW-160)*p,7,'F');
+    doc.text(`${fmt(b.pts)}/${b.n}  (${Math.round(p*100)}%)`,M+CW-62,y+9);y+=16});
+  y+=6;
+  text('Observação: as questões dissertativas foram corrigidas automaticamente por palavras-chave (correção preliminar). As respostas completas estão abaixo para revisão do professor.',{size:9,style:'italic',color:[91,107,103],gap:10});
+  // Detalhe
+  text('Respostas',{size:13,style:'bold',gap:6});
+  Q.forEach((q,i)=>{
+    const a=S.answers[i];const st=a?{ok:'CORRETA',mid:'PARCIAL',bad:'INCORRETA'}[a.status]:'EM BRANCO';
+    const col=a?{ok:[29,122,62],mid:[154,98,0],bad:[179,38,30]}[a.status]:[91,107,103];
+    ensure(48);doc.setDrawColor(213,223,220);doc.line(M,y,M+CW,y);y+=8;
+    doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(20,32,29);doc.text(latin(`Questão ${i+1}  ·  ${q.t}  ·  ${TYPE_LABEL[q.type]}`),M,y+9);
+    doc.setTextColor(...col);doc.text(`${st}  (${a?fmt(a.score):'0,0'} pt)`,M+CW,y+9,{align:'right'});y+=16;
+    text(plain(q.q),{size:9.5,gap:3});
+    if(q.snip)text(q.snip,{size:8.5,font:'courier',gap:3,indent:10});
+    text('Resposta do aluno:',{size:8.5,style:'bold',color:[91,107,103],gap:1});
+    text(answerText(i),{size:9,font:q.type==='code'?'courier':'helvetica',gap:3,indent:10});
+    if(q.type==='open'&&a&&a.hit){const n=a.hit.filter(Boolean).length;text(`Ideias-chave identificadas: ${n} de ${q.kw.length}`,{size:8.5,color:[91,107,103],gap:2,indent:10})}
+    if(!a||a.status!=='ok'||q.type!=='mc'){text(q.type==='mc'?'Resposta correta:':'Resposta de referência:',{size:8.5,style:'bold',color:[91,107,103],gap:1});text(correctText(i),{size:9,gap:6,indent:10})}
+    else y+=4;
+  });
+  const pages=doc.getNumberOfPages();
+  for(let p=1;p<=pages;p++){doc.setPage(p);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(120,135,130);
+    doc.text(latin(`${S.student.nome} · Matrícula ${S.student.mat}`),M,H-24);doc.text(`Página ${p} de ${pages}`,W-M,H-24,{align:'right'})}
+  return doc;
+}
+
+async function downloadPDF(){
+  if(!window.jspdf){msg('Não foi possível carregar o gerador de PDF. Verifique a conexão e recarregue a página, ou use "Copiar resumo em texto".','err');return}
+  const btn=$('#btn-pdf');btn.disabled=true;
+  try{
+    const doc=buildPDF();
+    const safe=S.student.nome.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'')||'aluno';
+    const filename=`desempenho-quiz-web-${safe}-${S.student.mat.replace(/[^A-Za-z0-9]/g,'')}.pdf`;
+    const blob=doc.output('blob');
+    const dl=window.claude?.use?await window.claude.use('downloads'):null;
+    if(dl){
+      try{await dl.save({filename,data:blob});msg('PDF salvo. Agora é só enviar ao professor.','ok')}
+      catch(e){const c=e&&e.code;
+        if(c==='declined')msg('Download cancelado. Clique de novo quando quiser salvar.','');
+        else if(c==='rate_limited')msg('Já existe uma confirmação de download aberta. Responda a ela e tente de novo.','');
+        else msg('O download não está disponível nesta visualização. Use "Copiar resumo em texto" e envie ao professor.','err')}
+    }else{
+      doc.save(filename);msg('PDF gerado. Agora é só enviar ao professor.','ok');
+    }
+  }catch(e){msg('Erro ao gerar o PDF: '+(e&&e.message||e),'err')}
+  finally{btn.disabled=false}
+}
+
+render();
+</script>
+
+</body>
+</html>
